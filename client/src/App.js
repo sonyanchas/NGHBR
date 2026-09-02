@@ -9,7 +9,12 @@ function App() {
     // ==========================================
     
     // Original input state variables
+    const [firstname, setFirstname] = useState('');
+    const [lastname, setLastname] = useState('');
+    const [phone, setPhone] = useState('');
+    const [location, setLocation] = useState('');
     const [name, setName] = useState('');
+    const [profile, setProfile] = useState({});
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
@@ -83,7 +88,15 @@ function App() {
 }
 
         try {
-            const response = await axios.post('/register', { name, email, password });
+            const response = await axios.post('/register', {
+                name: `${firstname} ${lastname}`.trim(),
+                firstname,
+                lastname,
+                phone,
+                location,
+                email,
+                password,
+            });
             console.log("Registration API response:", response);
             setMessage(response.data.message || 'Verification code sent to your email!');
             setIsEmailSent(true); // Show verification step
@@ -100,7 +113,16 @@ function App() {
             console.log("Login API response:", response);
             
             if (response.data.success) {
-                setName(response.data.name || 'User'); // Use name from response or default to 'User'
+                const userMetadata = response.data.user?.user_metadata || {};
+                setName(response.data.name || userMetadata.name || 'User');
+                setProfile({
+                    name: response.data.name || userMetadata.name || 'User',
+                    firstname: userMetadata.firstname || '',
+                    lastname: userMetadata.lastname || '',
+                    phone: userMetadata.phone || '',
+                    location: userMetadata.location || '',
+                    email,
+                });
                 setMessage('Login successful!');
                 setIsVerified(true); 
             } else {
@@ -119,6 +141,7 @@ function App() {
     const handleLogout = () => {
         // Reset all states
         setName('');
+        setProfile({});
         setEmail('');
         setPassword('');
         setMessage('');
@@ -165,11 +188,20 @@ function App() {
     const renderRegistrationForm = () => (
         <form onSubmit={handleRegister}>
             <div>
-                <label>Name</label>
+                <label>First Name</label>
                 <input
                     type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={firstname}
+                    onChange={(e) => setFirstname(e.target.value)}
+                    required
+                />
+            </div>
+            <div>
+                <label>Last Name</label>
+                <input
+                    type="text"
+                    value={lastname}
+                    onChange={(e) => setLastname(e.target.value)}
                     required
                 />
             </div>
@@ -180,9 +212,36 @@ function App() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="Email"
                 />
             </div>
+            <div>
+                <label>Phone Number</label>
+                <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                />
+            </div>
+            <div>
+                <label>Location in Nairobi</label>
+                <select value={location} onChange={(e) => setLocation(e.target.value)} required>
+                    <option value="">Select your area</option>
+                    <option value="Nairobi CBD">Nairobi CBD</option>
+                    <option value="Westlands">Westlands</option>
+                    <option value="Kilimani">Kilimani</option>
+                    <option value="Kileleshwa">Kileleshwa</option>
+                    <option value="Lavington">Lavington</option>
+                    <option value="Karen">Karen</option>
+                    <option value="Kasarani">Kasarani</option>
+                    <option value="Roysambu">Roysambu</option>
+                    <option value="Embakasi">Embakasi</option>
+                    <option value="Lang'ata">Lang'ata</option>
+                    <option value="Dagoretti">Dagoretti</option>
+                    <option value="Other Nairobi area">Other Nairobi area</option>
+                </select>
+            </div>
+            
             <div>
                 <label>Password</label>
                 <input
@@ -244,10 +303,11 @@ function App() {
                     {message && <p className="message">{message}</p>}
                 </>
             ) : (
-                <Dashboard 
-                    name={name} 
-                    email={email} 
-                    onLogout={handleLogout} 
+                <Dashboard
+                    name={name}
+                    email={email}
+                    profile={profile}
+                    onLogout={handleLogout}
                 />
             )}
         </div>

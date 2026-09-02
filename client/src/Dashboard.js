@@ -6,7 +6,7 @@ import TaskerOnboarding from './TaskerOnboarding';
 import Navbar from './Navbar';
 import './Dashboard.css';
 
-function Dashboard({ name, email, onLogout }) {
+function Dashboard({ name, email, profile, onLogout }) {
     const [showForm, setShowForm] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [currentPage, setCurrentPage] = useState('home');
@@ -17,6 +17,14 @@ function Dashboard({ name, email, onLogout }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedTask, setSelectedTask] = useState(null);
+    const [myTasks, setMyTasks] = useState([]);
+    const [myTasksLoading, setMyTasksLoading] = useState(false);
+    const [myTasksError, setMyTasksError] = useState('');
+    const [profileSection, setProfileSection] = useState('account');
+    const [paymentDetails, setPaymentDetails] = useState(null);
+    const [transactions, setTransactions] = useState([]);
+    const [profileMessage, setProfileMessage] = useState('');
+    const [showPaymentDetails, setShowPaymentDetails] = useState(false);
 
     const fetchTasks = async (query = '') => {
         setIsLoading(true);
@@ -171,6 +179,166 @@ function Dashboard({ name, email, onLogout }) {
         setCurrentPage(page);
         setShowForm(false);
         setShowOnboarding(false);
+        if (page === 'stars' && myTasks.length === 0) {
+            fetchMyTasks();
+        }
+    };
+
+    const fetchMyTasks = async () => {
+        setMyTasksLoading(true);
+        setMyTasksError('');
+        try {
+            const response = await axios.get('/api/profile/tasks', {
+                headers: { 'user-id': email }
+            });
+            setMyTasks(response.data.tasks || []);
+        } catch (error) {
+            setMyTasksError(error.response?.data?.message || 'Could not load your tasks.');
+        } finally {
+            setMyTasksLoading(false);
+        }
+    };
+
+    const renderMyTasks = () => {
+        const currentTasks = myTasks.filter((task) => task.status !== 'completed');
+        const completedTasks = myTasks.filter((task) => task.status === 'completed');
+
+        const renderTaskList = (tasks, emptyMessage) => (
+            tasks.length > 0 ? (
+                <div className="my-task-list">
+                    {tasks.map((task) => (
+                        <div className="my-task-row" key={task.bookingId}>
+                            <div>
+                                <h3>{task.title || 'Untitled task'}</h3>
+                                <p>{task.category || 'General task'}{task.location ? ` | ${task.location}` : ''}</p>
+                            </div>
+                            <div className="my-task-meta">
+                                <strong>KES {task.amount || task.price || '0'}</strong>
+                                <span>{task.status}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : <p className="profile-hint">{emptyMessage}</p>
+        );
+
+        return (
+            <div className="stars-page">
+                <h2>My Stars</h2>
+                {myTasksLoading && <p className="profile-hint">Loading your tasks...</p>}
+                {myTasksError && <p className="profile-message">{myTasksError}</p>}
+                {!myTasksLoading && !myTasksError && (
+                    <>
+                        <section className="task-status-section">
+                            <h3>Current Tasks</h3>
+                            {renderTaskList(currentTasks, 'You have no current tasks.')}
+                        </section>
+                        <section className="task-status-section">
+                            <h3>Completed Tasks</h3>
+                            {renderTaskList(completedTasks, 'You have no completed tasks yet.')}
+                        </section>
+                    </>
+                )}
+            </div>
+        );
+    };
+
+    const loadProfileSection = async (section) => {
+        setProfileSection(section);
+        setProfileMessage('');
+
+        if (section === 'payment' && !paymentDetails) {
+            try {
+                const response = await axios.get('/api/profile/payment-details', {
+                    headers: { 'user-id': email }
+                });
+                setPaymentDetails(response.data.payment || {});
+            } catch (error) {
+                setProfileMessage(error.response?.data?.message || 'Could not load payment details.');
+            }
+        }
+
+        if (section === 'transactions' && transactions.length === 0) {
+            try {
+                const response = await axios.get('/api/profile/transactions', {
+                    headers: { 'user-id': email }
+                });
+                setTransactions(response.data.transactions || []);
+            } catch (error) {
+                setProfileMessage(error.response?.data?.message || 'Could not load transaction history.');
+            }
+        }
+    };
+
+    const handlePasswordReset = async () => {
+        try {
+            const response = await axios.post('/api/profile/password-reset', { email });
+            setProfileMessage(response.data.message || 'Password reset instructions sent to your email.');
+        } catch (error) {
+            setProfileMessage(error.response?.data?.message || 'Could not send password reset instructions.');
+        }
+    };
+
+    const renderProfileContent = () => {
+        if (profileSection === 'account') {
+            return (
+                <div className="profile-panel">
+                    <h3>Account Information</h3>
+                    <div className="profile-fields">
+                        <p><strong>First name</strong><span>{profile?.firstname || name}</span></p>
+                        <p><strong>Last name</strong><span>{profile?.lastname || 'Not provided'}</span></p>
+                        <p><strong>Email</strong><span>{profile?.email || email}</span></p>
+                        <p><strong>Phone</strong><span>{profile?.phone || 'Not provided'}</span></p>
+                        <p><strong>Location</strong><span>{profile?.location || 'Not provided'}</span></p>
+                    </div>
+                </div>
+            );
+        }
+
+        if (profileSection === 'password') {
+            return (
+                <div className="profile-panel">
+                    <h3>Password</h3>
+                    <p className="masked-value">********</p>
+                    <p className="profile-hint">Your password is never displayed. Send yourself a secure reset link to change it.</p>
+                    <button className="profile-action-btn" onClick={handlePasswordReset}>Email me a password reset link</button>
+                </div>
+            );
+        }
+
+        if (profileSection === 'payment') {
+            return (
+                <div className="profile-panel">
+                    <h3>Payment Details</h3>
+                    {paymentDetails?.configured ? (
+                        <>
+                            <p><strong>Account holder</strong><span>{paymentDetails.businessName}</span></p>
+                            <button className="profile-action-btn" onClick={() => setShowPaymentDetails(!showPaymentDetails)}>
+                                {showPaymentDetails ? 'Hide bank details' : 'Show bank details'}
+                            </button>
+                            {showPaymentDetails && <p className="revealed-payment"><strong>Bank account</strong><span>{paymentDetails.bankName || 'Bank account'} ending in {paymentDetails.accountNumberLast4}</span></p>}
+                        </>
+                    ) : <p className="profile-hint">No payout account has been set up yet.</p>}
+                </div>
+            );
+        }
+
+        return (
+            <div className="profile-panel">
+                <h3>Transaction History</h3>
+                {transactions.length === 0 ? <p className="profile-hint">No transactions found.</p> : (
+                    <div className="transaction-list">
+                        {transactions.map((transaction) => (
+                            <div className="transaction-row" key={transaction.id}>
+                                <span>{transaction.created_at ? new Date(transaction.created_at).toLocaleDateString() : 'Date unavailable'}</span>
+                                <strong>KES {transaction.amount}</strong>
+                                <span className={`transaction-status ${transaction.status}`}>{transaction.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -182,14 +350,22 @@ function Dashboard({ name, email, onLogout }) {
                 {currentPage === 'profile' && (
                     <div className="profile-page">
                         <h2>My Profile</h2>
-                        <div className="profile-card">
-                            <div className="profile-info">
-                                <p><strong>Name:</strong> {name}</p>
-                                <p><strong>Email:</strong> {email}</p>
+                        <div className="profile-layout">
+                            <nav className="profile-sidebar" aria-label="Profile sections">
+                                <button className={profileSection === 'account' ? 'active' : ''} onClick={() => loadProfileSection('account')}>Account Information</button>
+                                <button className={profileSection === 'password' ? 'active' : ''} onClick={() => loadProfileSection('password')}>Password</button>
+                                <button className={profileSection === 'payment' ? 'active' : ''} onClick={() => loadProfileSection('payment')}>Payment</button>
+                                <button className={profileSection === 'transactions' ? 'active' : ''} onClick={() => loadProfileSection('transactions')}>Transaction History</button>
+                            </nav>
+                            <div className="profile-content">
+                                {renderProfileContent()}
+                                {profileMessage && <p className="profile-message">{profileMessage}</p>}
                             </div>
                         </div>
                     </div>
                 )}
+
+                {currentPage === 'stars' && renderMyTasks()}
 
                 {/* Home Page */}
                 {currentPage === 'home' && (

@@ -106,3 +106,25 @@
     font-size: 0.9rem;
   }
 }
+
+/* Monochrome theme */
+.navbar {
+  background-color: #111;
+}
+
+.navbar-brand,
+.nav-link:hover {
+  color: white;
+}
+
+.nav-link:hover {
+  background-color: #333;
+}
+
+.logout-btn {
+  background-color: #444;
+}
+
+.logout-btn:hover {
+  background-color: #222;
+}

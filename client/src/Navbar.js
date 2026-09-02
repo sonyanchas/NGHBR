@@ -13,6 +13,9 @@ function Navbar({ userName, onLogout, onNavigate }) {
           <button className="nav-link" onClick={() => onNavigate('home')}>
             Home
           </button>
+          <button className="nav-link" onClick={() => onNavigate('stars')}>
+            My Stars
+          </button>
           <button className="nav-link" onClick={() => onNavigate('profile')}>
             Profile
           </button>

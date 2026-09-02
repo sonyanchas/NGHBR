@@ -275,3 +275,42 @@
   .close-success-btn:hover {
     background-color: #2980b9;
   }
+
+  /* Monochrome theme */
+  .modal-details h2,
+  .availability h3,
+  .rental-form h3,
+  .total-price-display .price,
+  .success-message h3 {
+    color: #111;
+  }
+
+  .availability,
+  .payment-section,
+  .success-message,
+  .error-message {
+    background-color: #e5e5e5;
+  }
+
+  .pay-button,
+  .close-success-btn {
+    background-color: #111;
+  }
+
+  .pay-button:hover:not(:disabled),
+  .close-success-btn:hover {
+    background-color: #333;
+  }
+
+  .pay-button:disabled {
+    background-color: #999;
+  }
+
+  .error-message {
+    color: #222;
+    border-left-color: #555;
+  }
+
+  .success-message h3 {
+    color: #111;
+  }

@@ -92,7 +92,7 @@ async function getUserIdByEmail(email) {
 // ========================================================
 
 app.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, firstname, lastname, phone, location, email, password } = req.body;
     console.log(`Received registration request for email: ${email}`);
 
     // Accept any valid email address (no domain restriction)
@@ -107,7 +107,7 @@ app.post('/register', async (req, res) => {
       const { data, error } = await supabase.auth.admin.createUser({
         email,
         password,
-        user_metadata: { name },
+        user_metadata: { name, firstname, lastname, phone, location },
         // Auto-confirm for local/dev convenience so the user can login immediately.
         email_confirm: true,
       });
@@ -486,4 +486,96 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, '127.0.0.1', () => {
     console.log(`Server running on http://127.0.0.1:${PORT}`);
+});
+
+app.post('/api/profile/password-reset', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ success: false, message: 'Email is required' });
+  }
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+    res.json({ success: true, message: 'Password reset instructions have been sent to your email.' });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ success: false, message: 'Could not send password reset instructions.' });
+  }
+});
+
+app.get('/api/profile/payment-details', async (req, res) => {
+  const userEmail = req.headers['user-id'];
+  if (!userEmail) return res.status(401).json({ success: false, message: 'User authentication required' });
+
+  try {
+    const userId = await getUserIdByEmail(userEmail);
+    const { data, error } = await supabase
+      .from('taskers')
+      .select('business_name, bank_code, account_number_last4')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    res.json({ success: true, payment: data ? {
+      configured: true,
+      businessName: data.business_name,
+      bankName: data.bank_code,
+      accountNumberLast4: data.account_number_last4,
+    } : { configured: false } });
+  } catch (error) {
+    console.error('Payment details error:', error);
+    res.status(500).json({ success: false, message: 'Could not load payment details.' });
+  }
+});
+
+app.get('/api/profile/transactions', async (req, res) => {
+  const userEmail = req.headers['user-id'];
+  if (!userEmail) return res.status(401).json({ success: false, message: 'User authentication required' });
+
+  try {
+    const userId = await getUserIdByEmail(userEmail);
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id, amount, status, payment_reference, created_at, updated_at, task_id, tasker_id, customer_id')
+      .or(`customer_id.eq.${userId},tasker_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ success: true, transactions: data || [] });
+  } catch (error) {
+    console.error('Transaction history error:', error);
+    res.status(500).json({ success: false, message: 'Could not load transaction history.' });
+  }
+});
+
+app.get('/api/profile/tasks', async (req, res) => {
+  const userEmail = req.headers['user-id'];
+  if (!userEmail) return res.status(401).json({ success: false, message: 'User authentication required' });
+
+  try {
+    const userId = await getUserIdByEmail(userEmail);
+    const { data: bookings, error: bookingError } = await supabase
+      .from('bookings')
+      .select('id, amount, status, task_id, tasker_id, customer_id')
+      .or(`customer_id.eq.${userId},tasker_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+    if (bookingError) throw bookingError;
+
+    const taskIds = [...new Set((bookings || []).map((booking) => booking.task_id).filter(Boolean))];
+    const { data: taskRows, error: taskError } = taskIds.length
+      ? await supabase.from('tasks').select('id, title, category, location, price').in('id', taskIds)
+      : { data: [], error: null };
+    if (taskError) throw taskError;
+
+    const taskMap = Object.fromEntries((taskRows || []).map((task) => [task.id, task]));
+    const tasks = (bookings || []).map((booking) => ({
+      bookingId: booking.id,
+      ...taskMap[booking.task_id],
+      amount: booking.amount,
+      status: booking.status,
+    }));
+    res.json({ success: true, tasks });
+  } catch (error) {
+    console.error('My tasks error:', error);
+    res.status(500).json({ success: false, message: 'Could not load your tasks.' });
+  }
 });
