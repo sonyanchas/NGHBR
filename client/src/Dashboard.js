@@ -224,7 +224,7 @@ function Dashboard({ name, email, profile, onLogout }) {
 
         return (
             <div className="stars-page">
-                <h2>My Stars</h2>
+                <h2>My Tasks</h2>
                 {myTasksLoading && <p className="profile-hint">Loading your tasks...</p>}
                 {myTasksError && <p className="profile-message">{myTasksError}</p>}
                 {!myTasksLoading && !myTasksError && (

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, X, Info } from "lucide-react";
+import Navbar from './Navbar';
 
 const TASK_CATEGORIES = [
   { value: "cleaning", label: "Cleaning" },
@@ -41,6 +42,12 @@ export default function Homepage({ onOpenAuth }) {
   const [query, setQuery] = useState("");
   const [selectedTasker, setSelectedTasker] = useState(null);
   const [authView, setAuthView] = useState(null); // 'signup' | 'login' | null
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowAuthPrompt(true), 15000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const openTasker = (tasker) => {
     setSelectedTasker(tasker);
@@ -50,6 +57,7 @@ export default function Homepage({ onOpenAuth }) {
   const closeModal = () => {
     setSelectedTasker(null);
     setAuthView(null);
+    setShowAuthPrompt(false);
   };
 
   const handleAuthChoice = (mode) => {
@@ -63,6 +71,8 @@ export default function Homepage({ onOpenAuth }) {
 
   return (
     <div style={styles.page}>
+      <Navbar publicMode onOpenAuth={onOpenAuth} />
+
       {/* Bubble bar — hero search */}
       <section style={styles.hero}>
         <h1 style={styles.headline}>How can we make your life easier?</h1>
@@ -172,6 +182,29 @@ export default function Homepage({ onOpenAuth }) {
           </div>
         </div>
       )}
+
+      {showAuthPrompt && !selectedTasker && (
+        <div style={styles.overlay} onClick={closeModal}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <button style={styles.closeBtn} onClick={closeModal} aria-label="Close">
+              <X size={18} />
+            </button>
+            <h3 style={styles.modalTitle}>Make your life easier.</h3>
+            <p style={styles.modalSub}>Sign in or create an account to get started.</p>
+            <button style={styles.primaryBtn} onClick={() => handleAuthChoice("signup")}>
+              Sign up
+            </button>
+            <div style={styles.orDivider}>
+              <span style={styles.orLine} />
+              <span style={styles.orText}>or</span>
+              <span style={styles.orLine} />
+            </div>
+            <button style={styles.secondaryBtn} onClick={() => handleAuthChoice("login")}>
+              Sign in
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -198,7 +231,7 @@ function AuthForm({ mode, onBack }) {
   );
 }
 
-const GOLD = "#D8A13A";
+const BLACK = "#111111";
 const INK = "#1a1a1a";
 
 const styles = {
@@ -230,7 +263,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     background: "#fff",
-    border: `2px solid ${GOLD}`,
+    border: `2px solid ${BLACK}`,
     borderRadius: 999,
     padding: "6px 6px 6px 22px",
     boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
@@ -253,7 +286,7 @@ const styles = {
     height: 44,
     minWidth: 44,
     borderRadius: "50%",
-    border: `2px solid ${GOLD}`,
+    border: `2px solid ${BLACK}`,
     background: "#fff",
     display: "flex",
     alignItems: "center",
@@ -297,7 +330,7 @@ const styles = {
     width: 40,
     height: 40,
     borderRadius: "50%",
-    background: GOLD,
+    background: BLACK,
     color: "#fff",
     display: "flex",
     alignItems: "center",
@@ -360,7 +393,7 @@ const styles = {
     width: 56,
     height: 56,
     borderRadius: "50%",
-    background: GOLD,
+    background: BLACK,
     color: "#fff",
     fontWeight: 700,
     fontSize: 22,
@@ -383,7 +416,7 @@ const styles = {
   primaryBtn: {
     width: "100%",
     padding: "13px 0",
-    background: GOLD,
+    background: BLACK,
     color: "#fff",
     border: "none",
     borderRadius: 10,

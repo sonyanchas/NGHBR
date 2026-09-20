@@ -9,6 +9,6 @@ test('starts on the homepage and opens the login screen from the tasker modal', 
   fireEvent.click(screen.getByText(/Wanjiru M\./i));
   fireEvent.click(screen.getByRole('button', { name: /Log in/i }));
 
-  expect(screen.getByText(/Welcome to TaskBoy/i)).toBeInTheDocument();
+  expect(screen.getByText(/Welcome to NGHBR/i)).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: /^Login$/i }).length).toBeGreaterThan(0);
 });

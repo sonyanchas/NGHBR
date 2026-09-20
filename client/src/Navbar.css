@@ -91,6 +91,7 @@
     order: 3;
     width: 100%;
     gap: 1rem;
+    flex-wrap: wrap;
   }
 
   .navbar-right {
@@ -119,6 +120,27 @@
 
 .nav-link:hover {
   background-color: #333;
+}
+
+.nav-link.active {
+  color: white;
+  background-color: #333;
+}
+
+.neighbor-btn {
+  background-color: white;
+  color: #111;
+  border: 1px solid white;
+  padding: 0.6rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.neighbor-btn:hover {
+  background-color: #ddd;
+  border-color: #ddd;
 }
 
 .logout-btn {

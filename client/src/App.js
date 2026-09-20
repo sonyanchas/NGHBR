@@ -250,21 +250,11 @@ function App({ initialAuthMode = 'login', onBackHome }) {
                 />
             </div>
             <div>
-                <label>Location in Nairobi</label>
+                <label>Location</label>
                 <select value={location} onChange={(e) => setLocation(e.target.value)} required>
-                    <option value="">Select your area</option>
-                    <option value="Nairobi CBD">Nairobi CBD</option>
-                    <option value="Westlands">Westlands</option>
-                    <option value="Kilimani">Kilimani</option>
-                    <option value="Kileleshwa">Kileleshwa</option>
-                    <option value="Lavington">Lavington</option>
-                    <option value="Karen">Karen</option>
-                    <option value="Kasarani">Kasarani</option>
-                    <option value="Roysambu">Roysambu</option>
-                    <option value="Embakasi">Embakasi</option>
-                    <option value="Lang'ata">Lang'ata</option>
-                    <option value="Dagoretti">Dagoretti</option>
-                    <option value="Other Nairobi area">Other Nairobi area</option>
+                    <option value="">Select your city</option>
+                    <option value="Nairobi">Nairobi</option>
+                    <option value="Mombasa">Mombasa</option>
                 </select>
             </div>
             
@@ -311,7 +301,7 @@ function App({ initialAuthMode = 'login', onBackHome }) {
                             ← Back to homepage
                         </button>
                     )}
-                    <h1>Welcome to TaskBoy</h1>
+                    <h1>Welcome to NGHBR</h1>
                     
                     {isEmailSent ? (
                         renderVerificationForm()
