@@ -1,9 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Dashboard from './Dashboard';
+import Homepage from './Homepage';
 import './App.css';
 
-function App() {
+export function AppRouter() {
+    const [currentScreen, setCurrentScreen] = useState('homepage');
+    const [initialAuthMode, setInitialAuthMode] = useState('login');
+
+    const goToAuth = (mode = 'login') => {
+        setInitialAuthMode(mode);
+        setCurrentScreen('auth');
+    };
+
+    if (currentScreen === 'homepage') {
+        return <Homepage onOpenAuth={goToAuth} />;
+    }
+
+    return (
+        <App
+            initialAuthMode={initialAuthMode}
+            onBackHome={() => setCurrentScreen('homepage')}
+        />
+    );
+}
+
+function App({ initialAuthMode = 'login', onBackHome }) {
     // ==========================================
     // STATE MANAGEMENT
     // ==========================================
@@ -25,8 +47,12 @@ function App() {
     const [isVerified, setIsVerified] = useState(false);
     
     // Authentication mode state
-    const [authMode, setAuthMode] = useState('register'); // Options: 'register' or 'login'
+    const [authMode, setAuthMode] = useState(initialAuthMode); // Options: 'register' or 'login'
     const [isCapsLockOn, setIsCapsLockOn] = useState(false);
+
+    useEffect(() => {
+        setAuthMode(initialAuthMode);
+    }, [initialAuthMode]);
     
     // Load Square SDK
     useEffect(() => {
@@ -275,6 +301,16 @@ function App() {
         <div className={`App ${isVerified ? 'dashboard-mode' : ''}`}>
             {!isVerified ? (
                 <>
+                    {onBackHome && (
+                        <button
+                            type="button"
+                            className="back-home-link"
+                            onClick={onBackHome}
+                            style={{ marginBottom: '12px', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: 0 }}
+                        >
+                            ← Back to homepage
+                        </button>
+                    )}
                     <h1>Welcome to TaskBoy</h1>
                     
                     {isEmailSent ? (
@@ -314,4 +350,4 @@ function App() {
     );
 }
 
-export default App;
+export default AppRouter;

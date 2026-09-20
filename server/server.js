@@ -87,6 +87,22 @@ async function getUserIdByEmail(email) {
   return user ? user.id : null;
 }
 
+async function getProfileUserId(req, res) {
+  const userEmail = req.headers['user-id'];
+  if (!userEmail) {
+    res.status(401).json({ success: false, message: 'User authentication required' });
+    return null;
+  }
+
+  const userId = await getUserIdByEmail(userEmail);
+  if (!userId) {
+    res.status(404).json({ success: false, message: 'User not found' });
+    return null;
+  }
+
+  return userId;
+}
+
 // ========================================================
 // Authentication Routes using Supabase Auth
 // ========================================================
@@ -505,11 +521,10 @@ app.post('/api/profile/password-reset', async (req, res) => {
 });
 
 app.get('/api/profile/payment-details', async (req, res) => {
-  const userEmail = req.headers['user-id'];
-  if (!userEmail) return res.status(401).json({ success: false, message: 'User authentication required' });
-
   try {
-    const userId = await getUserIdByEmail(userEmail);
+    const userId = await getProfileUserId(req, res);
+    if (!userId) return;
+
     const { data, error } = await supabase
       .from('taskers')
       .select('business_name, bank_code, account_number_last4')
@@ -528,19 +543,61 @@ app.get('/api/profile/payment-details', async (req, res) => {
   }
 });
 
-app.get('/api/profile/transactions', async (req, res) => {
-  const userEmail = req.headers['user-id'];
-  if (!userEmail) return res.status(401).json({ success: false, message: 'User authentication required' });
-
+app.get('/api/profile/payment-methods', async (req, res) => {
   try {
-    const userId = await getUserIdByEmail(userEmail);
+    const userId = await getProfileUserId(req, res);
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('taskers')
+      .select('business_name, bank_code, account_number_last4, paystack_subaccount_code')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+
+    const paymentMethods = data ? [{
+      id: 'payout-bank-account',
+      type: 'bank_account',
+      label: data.business_name,
+      bankCode: data.bank_code,
+      accountNumberLast4: data.account_number_last4,
+      provider: 'paystack',
+      configured: !!data.paystack_subaccount_code,
+    }] : [];
+
+    res.json({ success: true, paymentMethods });
+  } catch (error) {
+    console.error('Payment methods error:', error);
+    res.status(500).json({ success: false, message: 'Could not load payment methods.' });
+  }
+});
+
+app.get('/api/profile/transactions', async (req, res) => {
+  try {
+    const userId = await getProfileUserId(req, res);
+    if (!userId) return;
+
     const { data, error } = await supabase
       .from('bookings')
       .select('id, amount, status, payment_reference, created_at, updated_at, task_id, tasker_id, customer_id')
       .or(`customer_id.eq.${userId},tasker_id.eq.${userId}`)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    res.json({ success: true, transactions: data || [] });
+
+    const taskIds = [...new Set((data || []).map((booking) => booking.task_id).filter(Boolean))];
+    const { data: taskRows, error: taskError } = taskIds.length
+      ? await supabase.from('tasks').select('id, title, category').in('id', taskIds)
+      : { data: [], error: null };
+    if (taskError) throw taskError;
+
+    const taskMap = Object.fromEntries((taskRows || []).map((task) => [task.id, task]));
+    const transactions = (data || []).map((transaction) => ({
+      ...transaction,
+      task: taskMap[transaction.task_id] || null,
+      role: transaction.customer_id === userId ? 'customer' : 'tasker',
+    }));
+
+    res.json({ success: true, transactions });
   } catch (error) {
     console.error('Transaction history error:', error);
     res.status(500).json({ success: false, message: 'Could not load transaction history.' });

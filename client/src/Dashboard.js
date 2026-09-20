@@ -310,15 +310,31 @@ function Dashboard({ name, email, profile, onLogout }) {
             return (
                 <div className="profile-panel">
                     <h3>Payment Details</h3>
-                    {paymentDetails?.configured ? (
+                    {showOnboarding ? (
+                        <TaskerOnboarding
+                            email={email}
+                            onComplete={() => {
+                                setIsOnboarded(true);
+                                setShowOnboarding(false);
+                                setPaymentDetails(null);
+                                loadProfileSection('payment');
+                            }}
+                        />
+                    ) : paymentDetails?.configured ? (
                         <>
                             <p><strong>Account holder</strong><span>{paymentDetails.businessName}</span></p>
                             <button className="profile-action-btn" onClick={() => setShowPaymentDetails(!showPaymentDetails)}>
                                 {showPaymentDetails ? 'Hide bank details' : 'Show bank details'}
                             </button>
                             {showPaymentDetails && <p className="revealed-payment"><strong>Bank account</strong><span>{paymentDetails.bankName || 'Bank account'} ending in {paymentDetails.accountNumberLast4}</span></p>}
+                            <button className="profile-action-btn" onClick={() => setShowOnboarding(true)}>Update payment details</button>
                         </>
-                    ) : <p className="profile-hint">No payout account has been set up yet.</p>}
+                    ) : (
+                        <>
+                            <p className="profile-hint">No payout account has been set up yet.</p>
+                            <button className="profile-action-btn" onClick={() => setShowOnboarding(true)}>Set up payment details</button>
+                        </>
+                    )}
                 </div>
             );
         }
