@@ -107,36 +107,42 @@ async function getProfileUserId(req, res) {
 // Authentication Routes using Supabase Auth
 // ========================================================
 
+// Replace the existing app.post('/register', ...) route in server.js with this.
+// Everything else in server.js (the /login and /verify routes) can stay as-is —
+// they were already correct, /register was the only broken piece.
+
 app.post('/register', async (req, res) => {
     const { name, firstname, lastname, phone, location, email, password } = req.body;
     console.log(`Received registration request for email: ${email}`);
 
-    // Accept any valid email address (no domain restriction)
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(email)) {
         return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
     }
 
     try {
-      // Use the Admin API (service role key) to create the user server-side.
-      // This avoids client-side signUp fetch paths and works from trusted servers.
-      const { data, error } = await supabase.auth.admin.createUser({
+      // auth.signUp (not admin.createUser) is what actually triggers Supabase's
+      // confirmation email. admin.createUser with email_confirm:true was
+      // silently skipping verification entirely.
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        user_metadata: { name, firstname, lastname, phone, location },
-        // Auto-confirm for local/dev convenience so the user can login immediately.
-        email_confirm: true,
+        options: {
+          data: { name, firstname, lastname, phone, location }, // stored as user_metadata
+        },
       });
 
       if (error) throw error;
 
-      res.json({ success: true, message: 'Registration created. Please check your email to verify the account if verification is enabled.' });
+      res.json({
+        success: true,
+        message: 'Registration created — check your email for a verification code.',
+      });
     } catch (error) {
         console.error('Registration error:', error);
-         // Provide a clearer message for debugging while avoiding sensitive data.
-         const msg = (error && (error.message || error.toString())) || 'Error registering user';
-         const statusCode = error && error.status && Number.isInteger(error.status) ? error.status : 500;
-         res.status(statusCode).json({ success: false, message: msg });
+        const msg = (error && (error.message || error.toString())) || 'Error registering user';
+        const statusCode = error && error.status && Number.isInteger(error.status) ? error.status : 500;
+        res.status(statusCode).json({ success: false, message: msg });
     }
 });
 

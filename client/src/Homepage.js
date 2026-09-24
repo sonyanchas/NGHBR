@@ -13,12 +13,15 @@ const TASK_CATEGORIES = [
   { value: "tech-help", label: "Tech Help" },
 ];
 
-// Placeholder task data — swap for real taskers later
+// Placeholder task data — swap for real taskers later.
+// Each tasker now carries a `category` that matches a TASK_CATEGORIES value,
+// which is what the search actually filters on.
 const TASKERS = [
   {
     id: 1,
     name: "Wanjiru M.",
     task: "House Cleaning",
+    category: "cleaning",
     rate: "KSh 1,200 / visit",
     rating: 4.9,
   },
@@ -26,20 +29,57 @@ const TASKERS = [
     id: 2,
     name: "Otieno K.",
     task: "Plumbing Repairs",
-    rate: "KSh 800 / hr",
+    category: "handyman",
+    rate: "KSh 1,800 / job",
     rating: 4.8,
   },
   {
     id: 3,
     name: "Achieng B.",
     task: "Furniture Assembly",
+    category: "furniture-assembly",
     rate: "KSh 1,500 / job",
     rating: 5.0,
+  },
+  {
+    id: 4,
+    name: "Njoroge P.",
+    task: "Move & Delivery",
+    category: "moving",
+    rate: "KSh 2,000 / job",
+    rating: 4.7,
+  },
+  {
+    id: 5,
+    name: "Mumbi C.",
+    task: "Garden Tidy-Up",
+    category: "gardening",
+    rate: "KSh 1,000 / visit",
+    rating: 4.9,
+  },
+];
+
+const HOW_IT_WORKS = [
+  {
+    step: 1,
+    title: "Choose a Star",
+    detail: "By skills, price, and reviews",
+  },
+  {
+    step: 2,
+    title: "Schedule your Star",
+    detail: "Pick a time that works for you",
+  },
+  {
+    step: 3,
+    title: "Pay, tip, and review",
+    detail: "All in one place",
   },
 ];
 
 export default function Homepage({ onOpenAuth }) {
   const [query, setQuery] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedTasker, setSelectedTasker] = useState(null);
   const [authView, setAuthView] = useState(null); // 'signup' | 'login' | null
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
@@ -48,6 +88,11 @@ export default function Homepage({ onOpenAuth }) {
     const timer = setTimeout(() => setShowAuthPrompt(true), 15000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Only the Stars whose category matches what was picked in the bubble bar.
+  const filteredTaskers = query
+    ? TASKERS.filter((t) => t.category === query)
+    : [];
 
   const openTasker = (tasker) => {
     setSelectedTasker(tasker);
@@ -69,19 +114,21 @@ export default function Homepage({ onOpenAuth }) {
     setAuthView(mode);
   };
 
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setHasSearched(Boolean(query));
+  };
+
   return (
     <div style={styles.page}>
       <Navbar publicMode onOpenAuth={onOpenAuth} />
 
       {/* Bubble bar — hero search */}
       <section style={styles.hero}>
-        <h1 style={styles.headline}>How can we make your life easier?</h1>
+        <h1 style={styles.headline}>Rest easy, while we do the work</h1>
+        <p style={styles.subhead}>What service can we help you with?</p>
 
-        <form
-          style={styles.bubbleBar}
-          onSubmit={(e) => e.preventDefault()}
-          role="search"
-        >
+        <form style={styles.bubbleBar} onSubmit={handleSearch} role="search">
           <select
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -101,32 +148,62 @@ export default function Homepage({ onOpenAuth }) {
         </form>
       </section>
 
-      {/* Choose a helper */}
-      <section style={styles.helperSection}>
-        <h2 style={styles.sectionTitle}>Choose a helper</h2>
-
-        <div style={styles.taskerList}>
-          {TASKERS.map((t) => (
-            <button
-              key={t.id}
-              style={styles.taskerRow}
-              onClick={() => openTasker(t)}
-            >
-              <div style={styles.taskerLeft}>
-                <div style={styles.avatar}>{t.name.charAt(0)}</div>
-                <div>
-                  <div style={styles.taskerName}>{t.name}</div>
-                  <div style={styles.taskerTask}>{t.task}</div>
-                </div>
+      {/* How it works */}
+      <section style={styles.howSection}>
+        <h2 style={styles.sectionTitle}>How it works</h2>
+        <div style={styles.stepsList}>
+          {HOW_IT_WORKS.map((s) => (
+            <div key={s.step} style={styles.stepRow}>
+              <div style={styles.stepNumber}>{s.step}</div>
+              <div>
+                <div style={styles.stepTitle}>{s.title}</div>
+                <div style={styles.stepDetail}>{s.detail}</div>
               </div>
-              <div style={styles.taskerRight}>
-                <span style={styles.taskerRate}>{t.rate}</span>
-                <Info size={16} color="#8a8a8a" />
-              </div>
-            </button>
+            </div>
           ))}
         </div>
       </section>
+
+      {hasSearched && (
+        <section style={styles.helperSection}>
+          <h2 style={styles.sectionTitle}>Choose a Star</h2>
+
+          {filteredTaskers.length === 0 ? (
+            <p style={styles.emptyState}>
+              No Stars available for that category yet — check back soon.
+            </p>
+          ) : (
+            <div style={styles.taskerList}>
+              {filteredTaskers.map((t) => (
+                <button
+                  key={t.id}
+                  style={styles.taskerRow}
+                  onClick={() => openTasker(t)}
+                >
+                  <div style={styles.taskerLeft}>
+                    <div style={styles.avatar}>{t.name.charAt(0)}</div>
+                    <div>
+                      <div style={styles.taskerName}>{t.name}</div>
+                      <div style={styles.taskerTask}>{t.task}</div>
+                    </div>
+                  </div>
+                  <div style={styles.taskerRight}>
+                    <span style={styles.taskerRate}>{t.rate}</span>
+                    <Info size={16} color="#8a8a8a" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Footer / contact */}
+      <footer style={styles.footer}>
+        <p style={styles.footerText}>
+          If you have any questions, <a href="mailto:hello@taskboy.co.ke" style={styles.footerLink}>contact us</a>.
+        </p>
+      </footer>
 
       {/* Pop-up screen */}
       {selectedTasker && (
@@ -167,17 +244,11 @@ export default function Homepage({ onOpenAuth }) {
             )}
 
             {authView === "signup" && (
-              <AuthForm
-                mode="signup"
-                onBack={() => setAuthView(null)}
-              />
+              <AuthForm mode="signup" onBack={() => setAuthView(null)} />
             )}
 
             {authView === "login" && (
-              <AuthForm
-                mode="login"
-                onBack={() => setAuthView(null)}
-              />
+              <AuthForm mode="login" onBack={() => setAuthView(null)} />
             )}
           </div>
         </div>
@@ -232,6 +303,7 @@ function AuthForm({ mode, onBack }) {
 }
 
 const BLACK = "#111111";
+const GOLD = "#D8A13A";
 const INK = "#1a1a1a";
 
 const styles = {
@@ -242,7 +314,7 @@ const styles = {
     color: INK,
     fontFamily:
       "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    padding: "0 20px 80px",
+    padding: "0 20px 60px",
     boxSizing: "border-box",
   },
   hero: {
@@ -256,8 +328,13 @@ const styles = {
     fontWeight: 700,
     letterSpacing: "-0.02em",
     lineHeight: 1.15,
-    margin: "0 0 32px",
+    margin: "0 0 10px",
     color: INK,
+  },
+  subhead: {
+    fontSize: 16,
+    color: "#6b6b6b",
+    margin: "0 0 28px",
   },
   bubbleBar: {
     display: "flex",
@@ -293,15 +370,64 @@ const styles = {
     justifyContent: "center",
     cursor: "pointer",
   },
-  helperSection: {
+  howSection: {
     maxWidth: 640,
     margin: "56px auto 0",
+    textAlign: "center",
   },
   sectionTitle: {
     fontSize: 22,
     fontWeight: 700,
     margin: "0 0 18px",
     color: INK,
+  },
+  stepsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    textAlign: "left",
+  },
+  stepRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 14,
+    padding: "14px 18px",
+    border: "1.5px solid #e4e4e4",
+    borderRadius: 14,
+    background: "#fff",
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    minWidth: 28,
+    borderRadius: "50%",
+    background: GOLD,
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: 14,
+  },
+  stepTitle: {
+    fontWeight: 600,
+    fontSize: 15,
+    color: INK,
+  },
+  stepDetail: {
+    fontSize: 13,
+    color: "#8a8a8a",
+    marginTop: 2,
+  },
+  helperSection: {
+    maxWidth: 640,
+    margin: "56px auto 0",
+  },
+  emptyState: {
+    fontSize: 14,
+    color: "#8a8a8a",
+    textAlign: "center",
+    padding: "20px 0",
   },
   taskerList: {
     display: "flex",
@@ -358,6 +484,20 @@ const styles = {
     fontSize: 14,
     fontWeight: 600,
     color: INK,
+  },
+  footer: {
+    maxWidth: 640,
+    margin: "64px auto 0",
+    textAlign: "center",
+  },
+  footerText: {
+    fontSize: 13,
+    color: "#8a8a8a",
+  },
+  footerLink: {
+    color: GOLD,
+    fontWeight: 600,
+    textDecoration: "none",
   },
   overlay: {
     position: "fixed",
