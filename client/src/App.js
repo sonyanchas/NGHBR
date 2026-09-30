@@ -2,30 +2,58 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Dashboard from './Dashboard';
 import Homepage from './Homepage';
+import NeighborSetup from './NeighborSetup';
 import './App.css';
 
 export function AppRouter() {
     const [currentScreen, setCurrentScreen] = useState('homepage');
     const [initialAuthMode, setInitialAuthMode] = useState('login');
+    const [accountRole, setAccountRole] = useState('customer');
+    const [neighborDetails, setNeighborDetails] = useState({ city: '', category: '' });
 
-    const goToAuth = (mode = 'login') => {
+    const goToAuth = (mode = 'login', role = 'customer') => {
         setInitialAuthMode(mode);
+        setAccountRole(role);
         setCurrentScreen('auth');
     };
 
     if (currentScreen === 'homepage') {
-        return <Homepage onOpenAuth={goToAuth} />;
+        return <Homepage onOpenAuth={(mode) => goToAuth(mode, 'customer')} onBecomeNeighbor={() => setCurrentScreen('neighbor-setup')} />;
+    }
+
+    if (currentScreen === 'neighbor-setup') {
+        return <NeighborSetup onBack={() => setCurrentScreen('homepage')} onContinue={(details) => {
+            setNeighborDetails(details);
+            setCurrentScreen('neighbor-account-choice');
+        }} />;
+    }
+
+    if (currentScreen === 'neighbor-account-choice') {
+        return (
+            <main className="neighbor-setup-page">
+                <button className="neighbor-back" type="button" onClick={() => setCurrentScreen('neighbor-setup')}>Back</button>
+                <section className="neighbor-setup-content">
+                    <p className="neighbor-eyebrow">{neighborDetails.city} · {neighborDetails.category}</p>
+                    <h1>Have you used NGHBR before?</h1>
+                    <p className="neighbor-intro">Sign in to your account or create one to finish setting up your Neighbor profile.</p>
+                    <button className="neighbor-continue" onClick={() => goToAuth('login', 'tasker')}>I have an account</button>
+                    <button className="neighbor-continue" onClick={() => goToAuth('register', 'tasker')}>I’m new to NGHBR</button>
+                </section>
+            </main>
+        );
     }
 
     return (
         <App
             initialAuthMode={initialAuthMode}
+            accountRole={accountRole}
+            neighborDetails={neighborDetails}
             onBackHome={() => setCurrentScreen('homepage')}
         />
     );
 }
 
-function App({ initialAuthMode = 'login', onBackHome }) {
+function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDetails = {}, onBackHome }) {
     // ==========================================
     // STATE MANAGEMENT
     // ==========================================
@@ -52,7 +80,10 @@ function App({ initialAuthMode = 'login', onBackHome }) {
 
     useEffect(() => {
         setAuthMode(initialAuthMode);
-    }, [initialAuthMode]);
+        if (accountRole === 'tasker') {
+            setLocation(neighborDetails.city || '');
+        }
+    }, [accountRole, initialAuthMode, neighborDetails.city]);
     
     // Load Square SDK
     useEffect(() => {
@@ -122,6 +153,8 @@ function App({ initialAuthMode = 'login', onBackHome }) {
                 location,
                 email,
                 password,
+                role: accountRole,
+                serviceCategory: accountRole === 'tasker' ? neighborDetails.category : '',
             });
             console.log("Registration API response:", response);
             setMessage(response.data.message || 'Verification code sent to your email!');
@@ -135,7 +168,13 @@ function App({ initialAuthMode = 'login', onBackHome }) {
         e.preventDefault();
         
         try {
-            const response = await axios.post('/login', { email, password });
+            const response = await axios.post('/login', {
+                email,
+                password,
+                role: accountRole,
+                location: neighborDetails.city,
+                serviceCategory: neighborDetails.category,
+            });
             console.log("Login API response:", response);
             
             if (response.data.success) {
@@ -146,8 +185,10 @@ function App({ initialAuthMode = 'login', onBackHome }) {
                     firstname: userMetadata.firstname || '',
                     lastname: userMetadata.lastname || '',
                     phone: userMetadata.phone || '',
-                    location: userMetadata.location || '',
+                    location: neighborDetails.city || userMetadata.location || '',
                     email,
+                    role: response.data.role || userMetadata.role || accountRole,
+                    serviceCategory: userMetadata.serviceCategory || '',
                 });
                 setMessage('Login successful!');
                 setIsVerified(true); 
@@ -333,6 +374,8 @@ function App({ initialAuthMode = 'login', onBackHome }) {
                     name={name}
                     email={email}
                     profile={profile}
+                    role={profile.role || accountRole}
+                    serviceCategory={profile.serviceCategory || neighborDetails.category}
                     onLogout={handleLogout}
                 />
             )}

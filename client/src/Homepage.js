@@ -77,7 +77,7 @@ const HOW_IT_WORKS = [
   },
 ];
 
-export default function Homepage({ onOpenAuth }) {
+export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
   const [query, setQuery] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedTasker, setSelectedTasker] = useState(null);
@@ -121,7 +121,7 @@ export default function Homepage({ onOpenAuth }) {
 
   return (
     <div style={styles.page}>
-      <Navbar publicMode onOpenAuth={onOpenAuth} />
+      <Navbar publicMode onOpenAuth={onOpenAuth} onBecomeNeighbor={onBecomeNeighbor} />
 
       {/* Bubble bar — hero search */}
       <section style={styles.hero}>
@@ -303,7 +303,6 @@ function AuthForm({ mode, onBack }) {
 }
 
 const BLACK = "#111111";
-const GOLD = "#D8A13A";
 const INK = "#1a1a1a";
 
 const styles = {
@@ -401,7 +400,7 @@ const styles = {
     height: 28,
     minWidth: 28,
     borderRadius: "50%",
-    background: GOLD,
+    background: BLACK,
     color: "#fff",
     display: "flex",
     alignItems: "center",
@@ -495,7 +494,7 @@ const styles = {
     color: "#8a8a8a",
   },
   footerLink: {
-    color: GOLD,
+    color: BLACK,
     fontWeight: 600,
     textDecoration: "none",
   },

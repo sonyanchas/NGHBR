@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Dashboard.css'; // Reusing Dashboard styles
 
-function PostTaskForm({ email, onClose, onTaskPosted }) {
+function PostTaskForm({ email, onClose, onTaskPosted, category: initialCategory, defaultLocation = '' }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState('cleaning');
-    const [location, setLocation] = useState('');
+    const [category, setCategory] = useState(initialCategory || 'cleaning');
+    const [location, setLocation] = useState(defaultLocation);
     const [price, setPrice] = useState('');
     const [images, setImages] = useState([]);
     const [message, setMessage] = useState('');

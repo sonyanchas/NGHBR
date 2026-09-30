@@ -112,7 +112,7 @@ async function getProfileUserId(req, res) {
 // they were already correct, /register was the only broken piece.
 
 app.post('/register', async (req, res) => {
-    const { name, firstname, lastname, phone, location, email, password } = req.body;
+  const { name, firstname, lastname, phone, location, email, password, role, serviceCategory } = req.body;
     console.log(`Received registration request for email: ${email}`);
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -128,7 +128,15 @@ app.post('/register', async (req, res) => {
         email,
         password,
         options: {
-          data: { name, firstname, lastname, phone, location }, // stored as user_metadata
+          data: {
+            name,
+            firstname,
+            lastname,
+            phone,
+            location,
+            role: role === 'tasker' ? 'tasker' : 'customer',
+            serviceCategory: role === 'tasker' ? serviceCategory : '',
+          },
         },
       });
 
@@ -147,16 +155,34 @@ app.post('/register', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password, role, location, serviceCategory } = req.body;
     console.log(`Received login request for email: ${email}`);
 
     try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        const name = data.user.user_metadata?.name || 'User';
+        const requestedRole = role === 'tasker' ? 'tasker' : 'customer';
+        const accountRole = data.user.user_metadata?.role === 'tasker' || requestedRole === 'tasker'
+          ? 'tasker'
+          : 'customer';
+        const { data: updatedUser, error: metadataError } = await supabase.auth.admin.updateUserById(
+          data.user.id,
+          {
+            user_metadata: {
+              ...data.user.user_metadata,
+              role: accountRole,
+              ...(accountRole === 'tasker' && location ? { location } : {}),
+              ...(accountRole === 'tasker' && serviceCategory ? { serviceCategory } : {}),
+            },
+          }
+        );
+        if (metadataError) throw metadataError;
 
-        res.json({ success: true, message: 'Login successful', name, user: data.user });
+        const user = updatedUser.user;
+        const name = user.user_metadata?.name || 'User';
+
+        res.json({ success: true, message: 'Login successful', name, role: accountRole, user });
     } catch (error) {
         console.error('Login error:', error);
          const msg = (error && (error.message || error.toString())) || 'Invalid email or password';
@@ -497,19 +523,6 @@ app.get('/api/verify-transaction/:reference', async (req, res) => {
   }
 });
 
-// ========================================================
-// Serve React Frontend
-// ========================================================
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
-});
-
-// Start the server
-const PORT = process.env.PORT || 5050;
-app.listen(PORT, '127.0.0.1', () => {
-    console.log(`Server running on http://127.0.0.1:${PORT}`);
-});
-
 app.post('/api/profile/password-reset', async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -619,7 +632,7 @@ app.get('/api/profile/tasks', async (req, res) => {
     const { data: bookings, error: bookingError } = await supabase
       .from('bookings')
       .select('id, amount, status, task_id, tasker_id, customer_id')
-      .or(`customer_id.eq.${userId},tasker_id.eq.${userId}`)
+      .eq('customer_id', userId)
       .order('created_at', { ascending: false });
     if (bookingError) throw bookingError;
 
@@ -641,4 +654,64 @@ app.get('/api/profile/tasks', async (req, res) => {
     console.error('My tasks error:', error);
     res.status(500).json({ success: false, message: 'Could not load your tasks.' });
   }
+});
+
+app.get('/api/tasker/listings', async (req, res) => {
+  try {
+    const userId = await getProfileUserId(req, res);
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('tasker_id', userId);
+    if (error) throw error;
+
+    res.json({ success: true, listings: data || [] });
+  } catch (error) {
+    console.error('Tasker listings error:', error);
+    res.status(500).json({ success: false, message: 'Could not load your services.' });
+  }
+});
+
+app.get('/api/tasker/requests', async (req, res) => {
+  try {
+    const userId = await getProfileUserId(req, res);
+    if (!userId) return;
+
+    const { data: bookings, error: bookingError } = await supabase
+      .from('bookings')
+      .select('id, amount, status, task_id, customer_id, created_at')
+      .eq('tasker_id', userId)
+      .order('created_at', { ascending: false });
+    if (bookingError) throw bookingError;
+
+    const taskIds = [...new Set((bookings || []).map((booking) => booking.task_id).filter(Boolean))];
+    const { data: taskRows, error: taskError } = taskIds.length
+      ? await supabase.from('tasks').select('id, title, category, location').in('id', taskIds)
+      : { data: [], error: null };
+    if (taskError) throw taskError;
+
+    const taskMap = Object.fromEntries((taskRows || []).map((task) => [task.id, task]));
+    const requests = (bookings || []).map((booking) => ({
+      ...booking,
+      task: taskMap[booking.task_id] || null,
+    }));
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('Tasker requests error:', error);
+    res.status(500).json({ success: false, message: 'Could not load your requests.' });
+  }
+});
+
+// ========================================================
+// Serve React Frontend after API routes
+// ========================================================
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+});
+
+const PORT = process.env.PORT || 5050;
+app.listen(PORT, '127.0.0.1', () => {
+    console.log(`Server running on http://127.0.0.1:${PORT}`);
 });

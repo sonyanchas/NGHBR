@@ -1,7 +1,7 @@
 import React from 'react';
 import './Navbar.css';
 
-function Navbar({ userName, onLogout, onNavigate, publicMode = false, onOpenAuth }) {
+function Navbar({ userName, onLogout, onNavigate, publicMode = false, onOpenAuth, onBecomeNeighbor, role = 'customer', currentPage = 'home' }) {
   if (publicMode) {
     return (
       <nav className="navbar">
@@ -20,7 +20,7 @@ function Navbar({ userName, onLogout, onNavigate, publicMode = false, onOpenAuth
             <button className="nav-link" onClick={() => onOpenAuth?.('register')}>
               Sign up
             </button>
-            <button className="neighbor-btn" onClick={() => onOpenAuth?.('register')}>
+            <button className="neighbor-btn" onClick={onBecomeNeighbor}>
               Become a Neighbor
             </button>
           </div>
@@ -37,13 +37,18 @@ function Navbar({ userName, onLogout, onNavigate, publicMode = false, onOpenAuth
         </div>
         
         <div className="navbar-center">
-          <button className="nav-link" onClick={() => onNavigate('home')}>
-            Home
+          <button className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => onNavigate('home')}>
+            {role === 'tasker' ? 'Home' : 'Book a Star'}
           </button>
-          <button className="nav-link" onClick={() => onNavigate('stars')}>
-            My Tasks
-          </button>
-          <button className="nav-link" onClick={() => onNavigate('profile')}>
+          {role === 'tasker' ? (
+            <>
+              <button className={`nav-link ${currentPage === 'pending' ? 'active' : ''}`} onClick={() => onNavigate('pending')}>Pending Requests</button>
+              <button className={`nav-link ${currentPage === 'confirmed' ? 'active' : ''}`} onClick={() => onNavigate('confirmed')}>Confirmed Requests</button>
+            </>
+          ) : (
+            <button className={`nav-link ${currentPage === 'stars' ? 'active' : ''}`} onClick={() => onNavigate('stars')}>My Tasks</button>
+          )}
+          <button className={`nav-link ${currentPage === 'profile' ? 'active' : ''}`} onClick={() => onNavigate('profile')}>
             Profile
           </button>
         </div>

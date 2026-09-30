@@ -6,7 +6,7 @@ import TaskerOnboarding from './TaskerOnboarding';
 import Navbar from './Navbar';
 import './Dashboard.css';
 
-function Dashboard({ name, email, profile, onLogout }) {
+function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceCategory = '' }) {
     const [showForm, setShowForm] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [currentPage, setCurrentPage] = useState('home');
@@ -25,6 +25,10 @@ function Dashboard({ name, email, profile, onLogout }) {
     const [transactions, setTransactions] = useState([]);
     const [profileMessage, setProfileMessage] = useState('');
     const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+    const [myListings, setMyListings] = useState([]);
+    const [taskerRequests, setTaskerRequests] = useState([]);
+    const [taskerDataLoading, setTaskerDataLoading] = useState(false);
+    const [taskerDataError, setTaskerDataError] = useState('');
 
     const fetchTasks = async (query = '') => {
         setIsLoading(true);
@@ -41,14 +45,37 @@ function Dashboard({ name, email, profile, onLogout }) {
         }
     };
 
+    const fetchTaskerDashboard = async () => {
+        setTaskerDataLoading(true);
+        setTaskerDataError('');
+        try {
+            const headers = { 'user-id': email };
+            const [listingsResponse, requestsResponse] = await Promise.all([
+                axios.get('/api/tasker/listings', { headers }),
+                axios.get('/api/tasker/requests', { headers }),
+            ]);
+            setMyListings(listingsResponse.data.listings || []);
+            setTaskerRequests(requestsResponse.data.requests || []);
+        } catch (error) {
+            setTaskerDataError(error.response?.data?.message || 'Could not load your Neighbor dashboard.');
+        } finally {
+            setTaskerDataLoading(false);
+        }
+    };
+
     useEffect(() => {
-        fetchTasks();
-    }, []);
+        if (role === 'tasker') {
+            fetchTaskerDashboard();
+        } else {
+            fetchTasks();
+        }
+    }, [email, role]);
 
     // Check whether this user has already onboarded as a Tasker (i.e. has a
     // Paystack subaccount on file). This determines whether "List a Service"
     // goes straight to the form or to onboarding first.
     useEffect(() => {
+        if (role !== 'tasker') return;
         const fetchOnboardingStatus = async () => {
             try {
                 const response = await axios.get('/api/tasker/status', {
@@ -61,7 +88,7 @@ function Dashboard({ name, email, profile, onLogout }) {
             }
         };
         fetchOnboardingStatus();
-    }, [email]);
+    }, [email, role]);
 
     // Handle search
     useEffect(() => {
@@ -243,6 +270,88 @@ function Dashboard({ name, email, profile, onLogout }) {
         );
     };
 
+    const renderTaskerHome = () => (
+        <>
+            <h2>Welcome, {name}!</h2>
+            <button className="post-listing-btn" onClick={handleListServiceClick}>
+                {(showForm || showOnboarding) ? 'Cancel' : 'List a Service'}
+            </button>
+
+            {showOnboarding && (
+                <TaskerOnboarding
+                    email={email}
+                    onComplete={() => {
+                        setIsOnboarded(true);
+                        setShowOnboarding(false);
+                        setShowForm(true);
+                    }}
+                />
+            )}
+
+            {showForm && (
+                <PostTaskForm
+                    email={email}
+                    category={serviceCategory}
+                    defaultLocation={profile?.location}
+                    onClose={() => setShowForm(false)}
+                    onTaskPosted={fetchTaskerDashboard}
+                />
+            )}
+
+            {!showForm && !showOnboarding && (
+                <section className="tasker-services-section">
+                    <h3>My Services</h3>
+                    {taskerDataLoading ? <p className="status-message">Loading your services...</p> :
+                        taskerDataError ? <p className="error-message">{taskerDataError}</p> :
+                            myListings.length ? (
+                                <div className="listings-grid">
+                                    {myListings.map((listing) => (
+                                        <article className="listing-card" key={listing.id}>
+                                            {listing.imageURL && <img src={listing.imageURL} alt={listing.title} />}
+                                            <div className="listing-info">
+                                                <h3>{listing.title}</h3>
+                                                <p><strong>Category:</strong> {listing.category}</p>
+                                                <p><strong>Location:</strong> {listing.location}</p>
+                                                <p><strong>KES {listing.price}</strong></p>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            ) : <p className="status-message">You have not listed a service yet.</p>}
+                </section>
+            )}
+        </>
+    );
+
+    const renderTaskerRequests = (confirmed) => {
+        const requests = taskerRequests.filter((request) =>
+            confirmed ? ['paid', 'confirmed'].includes(request.status) : request.status === 'pending'
+        );
+        return (
+            <section className="tasker-requests-page">
+                <h2>{confirmed ? 'Confirmed Requests' : 'Pending Requests'}</h2>
+                {taskerDataLoading ? <p className="status-message">Loading requests...</p> :
+                    taskerDataError ? <p className="error-message">{taskerDataError}</p> :
+                        requests.length ? (
+                            <div className="my-task-list">
+                                {requests.map((request) => (
+                                    <article className="my-task-row" key={request.id}>
+                                        <div>
+                                            <h3>{request.task?.title || 'Service request'}</h3>
+                                            <p>{request.task?.category || 'General'}{request.task?.location ? ` | ${request.task.location}` : ''}</p>
+                                        </div>
+                                        <div className="my-task-meta">
+                                            <strong>KES {request.amount || '0'}</strong>
+                                            <span>{request.status}</span>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        ) : <p className="status-message">No {confirmed ? 'confirmed' : 'pending'} requests yet.</p>}
+            </section>
+        );
+    };
+
     const loadProfileSection = async (section) => {
         setProfileSection(section);
         setProfileMessage('');
@@ -359,7 +468,7 @@ function Dashboard({ name, email, profile, onLogout }) {
 
     return (
         <div className="dashboard-wrapper">
-            <Navbar userName={name} onLogout={onLogout} onNavigate={handleNavigate} />
+            <Navbar userName={name} onLogout={onLogout} onNavigate={handleNavigate} role={role} currentPage={currentPage} />
             
             <div className="dashboard">
                 {/* Profile Page */}
@@ -381,10 +490,14 @@ function Dashboard({ name, email, profile, onLogout }) {
                     </div>
                 )}
 
-                {currentPage === 'stars' && renderMyTasks()}
+                {currentPage === 'stars' && role === 'customer' && renderMyTasks()}
+                {currentPage === 'pending' && role === 'tasker' && renderTaskerRequests(false)}
+                {currentPage === 'confirmed' && role === 'tasker' && renderTaskerRequests(true)}
 
                 {/* Home Page */}
-                {currentPage === 'home' && (
+                {currentPage === 'home' && role === 'tasker' && renderTaskerHome()}
+
+                {currentPage === 'home' && role === 'customer' && (
                     <>
                         <h2>Welcome, {name}!</h2>
 
@@ -398,34 +511,7 @@ function Dashboard({ name, email, profile, onLogout }) {
                 />
             </div>
 
-            {/* Toggle Post Service Form / Onboarding */}
-            <button className="post-listing-btn" onClick={handleListServiceClick}>
-                {(showForm || showOnboarding) ? "Cancel" : "List a Service"}
-            </button>
-
-            {/* Route to onboarding first if this Tasker hasn't set up payouts yet */}
-            {showOnboarding && (
-                <TaskerOnboarding
-                    email={email}
-                    onComplete={() => {
-                        setIsOnboarded(true);
-                        setShowOnboarding(false);
-                        setShowForm(true);
-                    }}
-                />
-            )}
-
-            {showForm && (
-                <PostTaskForm
-                    email={email}
-                    onClose={() => setShowForm(false)}
-                    onTaskPosted={() => fetchTasks(searchQuery)}
-                />
-            )}
-
             {/* Tasks Grid */}
-            {!showForm && !showOnboarding && (
-                <>
                     {isLoading ? (
                         <p className="status-message">Loading tasks...</p>
                     ) : error ? (
@@ -462,8 +548,6 @@ function Dashboard({ name, email, profile, onLogout }) {
                             {renderPlaceholderContent()}
                         </div>
                     )}
-                    </>
-                )}
                 </>
                 )}
 
