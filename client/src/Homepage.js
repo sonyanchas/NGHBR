@@ -148,22 +148,6 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
         </form>
       </section>
 
-      {/* How it works */}
-      <section style={styles.howSection}>
-        <h2 style={styles.sectionTitle}>How it works</h2>
-        <div style={styles.stepsList}>
-          {HOW_IT_WORKS.map((s) => (
-            <div key={s.step} style={styles.stepRow}>
-              <div style={styles.stepNumber}>{s.step}</div>
-              <div>
-                <div style={styles.stepTitle}>{s.title}</div>
-                <div style={styles.stepDetail}>{s.detail}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {hasSearched && (
         <section style={styles.helperSection}>
           <h2 style={styles.sectionTitle}>Choose a Star</h2>
@@ -197,6 +181,22 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
           )}
         </section>
       )}
+
+      {/* How it works */}
+      <section style={styles.howSection}>
+        <h2 style={styles.sectionTitle}>How it works</h2>
+        <div style={styles.stepsList}>
+          {HOW_IT_WORKS.map((s) => (
+            <div key={s.step} style={styles.stepRow}>
+              <div style={styles.stepNumber}>{s.step}</div>
+              <div>
+                <div style={styles.stepTitle}>{s.title}</div>
+                <div style={styles.stepDetail}>{s.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Footer / contact */}
       <footer style={styles.footer}>
