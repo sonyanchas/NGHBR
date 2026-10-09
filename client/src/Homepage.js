@@ -62,12 +62,12 @@ const TASKERS = [
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Choose a Star",
+    title: "Choose a Neighbor",
     detail: "By skills, price, and reviews",
   },
   {
     step: 2,
-    title: "Schedule your Star",
+    title: "Schedule your task",
     detail: "Pick a time that works for you",
   },
   {
@@ -150,11 +150,11 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
 
       {hasSearched && (
         <section style={styles.helperSection}>
-          <h2 style={styles.sectionTitle}>Choose a Star</h2>
+          <h2 style={styles.sectionTitle}>Choose a Neighbor</h2>
 
           {filteredTaskers.length === 0 ? (
             <p style={styles.emptyState}>
-              No Stars available for that category yet — check back soon.
+              No neighbors available for that category yet — check back soon.
             </p>
           ) : (
             <div style={styles.taskerList}>

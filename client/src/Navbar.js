@@ -38,7 +38,7 @@ function Navbar({ userName, onLogout, onNavigate, publicMode = false, onOpenAuth
         
         <div className="navbar-center">
           <button className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => onNavigate('home')}>
-            {role === 'tasker' ? 'Home' : 'Book a Star'}
+            {role === 'tasker' ? 'Home' : 'Phone a Neighbor'}
           </button>
           {role === 'tasker' ? (
             <>
