@@ -1,0 +1,89 @@
+.neighbor-setup-page {
+    min-height: 100vh;
+    padding: 28px clamp(20px, 6vw, 88px);
+    color: var(--color-ink);
+    background: var(--color-background);
+}
+
+.neighbor-back {
+    width: auto;
+    margin: 0;
+    padding: 8px 0;
+    color: var(--color-clay);
+    background: transparent;
+    text-align: left;
+}
+
+.neighbor-setup-content {
+    width: min(100%, 520px);
+    margin: 8vh auto 0;
+}
+
+.neighbor-eyebrow {
+    margin-bottom: 12px;
+    color: var(--color-terracotta);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.neighbor-setup-content h1 {
+    margin-bottom: 10px;
+    color: var(--color-ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 38px;
+    line-height: 1.12;
+}
+
+.neighbor-intro {
+    margin-bottom: 34px;
+    color: var(--color-muted);
+    line-height: 1.5;
+}
+
+.neighbor-setup-content form {
+    display: grid;
+    gap: 10px;
+}
+
+.neighbor-setup-content label {
+    margin: 12px 0 0;
+    color: var(--color-ink);
+}
+
+.neighbor-setup-content select {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    color: var(--color-ink);
+    background: var(--color-paper);
+    font: inherit;
+}
+
+.neighbor-setup-content .neighbor-continue {
+    min-height: 52px;
+    margin-top: 20px;
+    border-radius: 4px;
+    color: var(--color-paper);
+    background: var(--color-terracotta);
+}
+
+.neighbor-setup-content .neighbor-continue:hover {
+    background: var(--color-terracotta-hover);
+}
+
+@media (max-width: 520px) {
+    .neighbor-setup-page {
+        padding: 18px 20px;
+    }
+
+    .neighbor-setup-content {
+        margin-top: 7vh;
+    }
+
+    .neighbor-setup-content h1 {
+        font-size: 32px;
+    }
+}
