@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { Search, X, Info, MapPin, CreditCard, ListChecks } from "lucide-react";
 import Navbar from './Navbar';
 import "./Homepage.css";
@@ -12,52 +13,6 @@ const TASK_CATEGORIES = [
   { value: "tutoring", label: "Tutoring" },
   { value: "errands", label: "Errands" },
   { value: "tech-help", label: "Tech Help" },
-];
-
-// Placeholder task data — swap for real taskers later.
-// Each tasker now carries a `category` that matches a TASK_CATEGORIES value,
-// which is what the search actually filters on.
-const TASKERS = [
-  {
-    id: 1,
-    name: "Wanjiru M.",
-    task: "House Cleaning",
-    category: "cleaning",
-    rate: "KSh 1,200 / visit",
-    rating: 4.9,
-  },
-  {
-    id: 2,
-    name: "Otieno K.",
-    task: "Plumbing Repairs",
-    category: "handyman",
-    rate: "KSh 1,800 / job",
-    rating: 4.8,
-  },
-  {
-    id: 3,
-    name: "Achieng B.",
-    task: "Furniture Assembly",
-    category: "furniture-assembly",
-    rate: "KSh 1,500 / job",
-    rating: 5.0,
-  },
-  {
-    id: 4,
-    name: "Njoroge P.",
-    task: "Move & Delivery",
-    category: "moving",
-    rate: "KSh 2,000 / job",
-    rating: 4.7,
-  },
-  {
-    id: 5,
-    name: "Mumbi C.",
-    task: "Garden Tidy-Up",
-    category: "gardening",
-    rate: "KSh 1,000 / visit",
-    rating: 4.9,
-  },
 ];
 
 const HOW_IT_WORKS = [
@@ -105,6 +60,9 @@ const HOME_FEATURES = [
 export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
   const [query, setQuery] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [listings, setListings] = useState([]);
+  const [isLoadingListings, setIsLoadingListings] = useState(true);
+  const [listingsError, setListingsError] = useState("");
   const [selectedTasker, setSelectedTasker] = useState(null);
   const [authView, setAuthView] = useState(null); // 'signup' | 'login' | null
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
@@ -114,9 +72,24 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        const response = await axios.get("/tasks/search");
+        setListings(response.data.tasks || []);
+      } catch (error) {
+        setListingsError("Listings could not be loaded. Please try again later.");
+      } finally {
+        setIsLoadingListings(false);
+      }
+    };
+
+    fetchListings();
+  }, []);
+
   // Only the Stars whose category matches what was picked in the bubble bar.
   const filteredTaskers = query
-    ? TASKERS.filter((t) => t.category === query)
+    ? listings.filter((listing) => listing.category === query)
     : [];
 
   const openTasker = (tasker) => {
@@ -177,27 +150,37 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
         <section className="homepage-helper" style={styles.helperSection}>
           <h2 style={styles.sectionTitle}>Choose a Neighbor</h2>
 
-          {filteredTaskers.length === 0 ? (
+          {isLoadingListings ? (
+            <p style={styles.emptyState}>Loading available listings...</p>
+          ) : listingsError ? (
+            <p style={styles.emptyState}>{listingsError}</p>
+          ) : filteredTaskers.length === 0 ? (
             <p style={styles.emptyState}>
               No neighbors available for that category yet — check back soon.
             </p>
           ) : (
             <div style={styles.taskerList}>
-              {filteredTaskers.map((t) => (
+              {filteredTaskers.map((listing) => (
                 <button
-                  key={t.id}
+                  key={listing.id}
                   style={styles.taskerRow}
-                  onClick={() => openTasker(t)}
+                  onClick={() => openTasker(listing)}
                 >
                   <div style={styles.taskerLeft}>
-                    <div style={styles.avatar}>{t.name.charAt(0)}</div>
+                    <div style={styles.avatar}>
+                      {(listing.taskerName || "N").charAt(0)}
+                    </div>
                     <div>
-                      <div style={styles.taskerName}>{t.name}</div>
-                      <div style={styles.taskerTask}>{t.task}</div>
+                      <div style={styles.taskerName}>{listing.title}</div>
+                      <div style={styles.taskerTask}>
+                        {listing.taskerName} · {listing.location}
+                      </div>
                     </div>
                   </div>
                   <div style={styles.taskerRight}>
-                    <span style={styles.taskerRate}>{t.rate}</span>
+                    <span style={styles.taskerRate}>
+                      KSh {Number(listing.price).toLocaleString()} / job
+                    </span>
                     <Info size={16} color="var(--color-muted)" />
                   </div>
                 </button>
@@ -271,10 +254,12 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
 
             {authView === null && (
               <>
-                <div style={styles.modalAvatar}>{selectedTasker.name.charAt(0)}</div>
+                <div style={styles.modalAvatar}>
+                  {(selectedTasker.taskerName || "N").charAt(0)}
+                </div>
                 <h3 style={styles.modalTitle}>Let us make your life easier.</h3>
                 <p style={styles.modalSub}>
-                  {selectedTasker.name} · {selectedTasker.task}
+                  {selectedTasker.taskerName} · {selectedTasker.title}
                 </p>
 
                 <button
