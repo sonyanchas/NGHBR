@@ -6,7 +6,7 @@ import TaskerOnboarding from './TaskerOnboarding';
 import Navbar from './Navbar';
 import './Dashboard.css';
 
-function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceCategory = '' }) {
+function Dashboard({ name, email, profile, accessToken, onLogout, role = 'customer', serviceCategory = '' }) {
     const [showForm, setShowForm] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [currentPage, setCurrentPage] = useState('home');
@@ -18,9 +18,12 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
     const [error, setError] = useState('');
     const [selectedTask, setSelectedTask] = useState(null);
     const [myTasks, setMyTasks] = useState([]);
+    const [myTasksSection, setMyTasksSection] = useState('current');
     const [myTasksLoading, setMyTasksLoading] = useState(false);
     const [myTasksError, setMyTasksError] = useState('');
     const [profileSection, setProfileSection] = useState('account');
+    const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
+    const [isAvatarUploading, setIsAvatarUploading] = useState(false);
     const [paymentDetails, setPaymentDetails] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [profileMessage, setProfileMessage] = useState('');
@@ -182,7 +185,7 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
         ];
 
         return (
-            <div className="listings-grid">
+            <div className="listings-grid dashboard-task-grid">
                 {placeholders.map((item) => (
                     <div
                         key={item.id}
@@ -229,6 +232,8 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
     const renderMyTasks = () => {
         const currentTasks = myTasks.filter((task) => task.status !== 'completed');
         const completedTasks = myTasks.filter((task) => task.status === 'completed');
+        const tasks = myTasksSection === 'completed' ? completedTasks : currentTasks;
+        const sectionTitle = myTasksSection === 'completed' ? 'Completed Tasks' : 'Current Tasks';
 
         const renderTaskList = (tasks, emptyMessage) => (
             tasks.length > 0 ? (
@@ -252,20 +257,41 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
         return (
             <div className="stars-page">
                 <h2>My Tasks</h2>
-                {myTasksLoading && <p className="profile-hint">Loading your tasks...</p>}
-                {myTasksError && <p className="profile-message">{myTasksError}</p>}
-                {!myTasksLoading && !myTasksError && (
-                    <>
-                        <section className="task-status-section">
-                            <h3>Current Tasks</h3>
-                            {renderTaskList(currentTasks, 'You have no current tasks.')}
+                <div className="profile-layout stars-layout">
+                    <nav className="profile-sidebar" aria-label="My task sections">
+                        <button
+                            className={myTasksSection === 'current' ? 'active' : ''}
+                            aria-pressed={myTasksSection === 'current'}
+                            onClick={() => setMyTasksSection('current')}
+                        >
+                            Current
+                        </button>
+                        <button
+                            className={myTasksSection === 'completed' ? 'active' : ''}
+                            aria-pressed={myTasksSection === 'completed'}
+                            onClick={() => setMyTasksSection('completed')}
+                        >
+                            Completed
+                        </button>
+                    </nav>
+                    <div className="profile-content">
+                        <section className="profile-panel" aria-live="polite">
+                            <h3>{sectionTitle}</h3>
+                            {myTasksLoading ? (
+                                <p className="profile-hint">Loading your tasks...</p>
+                            ) : myTasksError ? (
+                                <p className="profile-message">{myTasksError}</p>
+                            ) : (
+                                renderTaskList(
+                                    tasks,
+                                    myTasksSection === 'completed'
+                                        ? 'You have no completed tasks yet.'
+                                        : 'You have no current tasks.'
+                                )
+                            )}
                         </section>
-                        <section className="task-status-section">
-                            <h3>Completed Tasks</h3>
-                            {renderTaskList(completedTasks, 'You have no completed tasks yet.')}
-                        </section>
-                    </>
-                )}
+                    </div>
+                </div>
             </div>
         );
     };
@@ -304,7 +330,7 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
                     {taskerDataLoading ? <p className="status-message">Loading your services...</p> :
                         taskerDataError ? <p className="error-message">{taskerDataError}</p> :
                             myListings.length ? (
-                                <div className="listings-grid">
+                                <div className="listings-grid dashboard-task-grid">
                                     {myListings.map((listing) => (
                                         <article className="listing-card" key={listing.id}>
                                             {listing.imageURL && <img src={listing.imageURL} alt={listing.title} />}
@@ -388,11 +414,65 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
         }
     };
 
+    const handleAvatarUpload = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setProfileMessage('Choose a JPG, PNG, or WebP image for your profile photo.');
+            event.target.value = '';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setProfileMessage('Profile photos must be 5 MB or smaller.');
+            event.target.value = '';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+        setIsAvatarUploading(true);
+        setProfileMessage('');
+        try {
+            const response = await axios.post('/api/profile/avatar', formData, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            setAvatarUrl(response.data.avatar_url);
+            setProfileMessage('Profile photo updated.');
+        } catch (error) {
+            setProfileMessage(error.response?.data?.message || 'Could not update your profile photo.');
+        } finally {
+            setIsAvatarUploading(false);
+            event.target.value = '';
+        }
+    };
+
     const renderProfileContent = () => {
         if (profileSection === 'account') {
             return (
                 <div className="profile-panel">
                     <h3>Account Information</h3>
+                    <div className="profile-photo-editor">
+                        {avatarUrl ? (
+                            <img src={avatarUrl} alt={`${name}'s profile`} />
+                        ) : (
+                            <div className="profile-photo-placeholder" aria-label="No profile photo">
+                                {(name || email || '?').charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div>
+                            <label htmlFor="profile-photo-upload">Profile photo</label>
+                            <input
+                                id="profile-photo-upload"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={handleAvatarUpload}
+                                disabled={isAvatarUploading}
+                            />
+                            <small>JPG, PNG, or WebP; maximum 5 MB.</small>
+                            {isAvatarUploading && <span className="profile-photo-status">Uploading photo...</span>}
+                        </div>
+                    </div>
                     <div className="profile-fields">
                         <p><strong>First name</strong><span>{profile?.firstname || name}</span></p>
                         <p><strong>Last name</strong><span>{profile?.lastname || 'Not provided'}</span></p>
@@ -520,7 +600,7 @@ function Dashboard({ name, email, profile, onLogout, role = 'customer', serviceC
                             {renderPlaceholderContent()}
                         </div>
                     ) : filteredResults.length > 0 ? (
-                        <div className="listings-grid">
+                        <div className="listings-grid dashboard-task-grid">
                             {filteredResults.map((task) => (
                                 <div
                                     key={task.id}

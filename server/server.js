@@ -75,6 +75,33 @@ app.use(express.urlencoded({ extended: true }));
 // Set up multer for handling file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
+const avatarUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, callback) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      callback(new Error('Profile photo must be a JPG, PNG, or WebP image.'));
+      return;
+    }
+    callback(null, true);
+  },
+});
+const parseAvatarUpload = (req, res, next) => {
+  avatarUpload.single('avatar')(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+    const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    res.status(status).json({ success: false, message: error.message || 'Could not upload profile photo.' });
+  });
+};
+
+const getAvatarFileExtension = (mimeType) => ({
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}[mimeType]);
 
 // Serve static files from React build folder
 app.use(express.static(path.join(__dirname, '../client/build')));
@@ -103,6 +130,24 @@ async function getProfileUserId(req, res) {
   return userId;
 }
 
+async function getAuthenticatedUser(req, res) {
+  const authorization = req.headers.authorization;
+  const accessToken = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!accessToken) {
+    res.status(401).json({ success: false, message: 'User authentication required' });
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data.user) {
+    if (error) console.error('Profile authentication error:', error);
+    res.status(401).json({ success: false, message: 'Your session is invalid or has expired. Please sign in again.' });
+    return null;
+  }
+
+  return data.user;
+}
+
 // ========================================================
 // Authentication Routes using Supabase Auth
 // ========================================================
@@ -111,7 +156,7 @@ async function getProfileUserId(req, res) {
 // Everything else in server.js (the /login and /verify routes) can stay as-is —
 // they were already correct, /register was the only broken piece.
 
-app.post('/register', async (req, res) => {
+app.post('/register', parseAvatarUpload, async (req, res) => {
   const { name, firstname, lastname, phone, location, email, password, role, serviceCategory } = req.body;
     console.log(`Received registration request for email: ${email}`);
 
@@ -120,7 +165,19 @@ app.post('/register', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
     }
 
+    let avatarPath;
     try {
+      let avatarURL;
+      if (req.file) {
+        const extension = getAvatarFileExtension(req.file.mimetype);
+        avatarPath = `avatars/${crypto.randomUUID()}.${extension}`;
+        const { error: avatarError } = await supabase.storage
+          .from('task-images')
+          .upload(avatarPath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+        if (avatarError) throw avatarError;
+        avatarURL = supabase.storage.from('task-images').getPublicUrl(avatarPath).data.publicUrl;
+      }
+
       // auth.signUp (not admin.createUser) is what actually triggers Supabase's
       // confirmation email. admin.createUser with email_confirm:true was
       // silently skipping verification entirely.
@@ -133,20 +190,30 @@ app.post('/register', async (req, res) => {
             firstname,
             lastname,
             phone,
-            location,
+            ...(role === 'tasker' && location ? { location } : {}),
             role: role === 'tasker' ? 'tasker' : 'customer',
             serviceCategory: role === 'tasker' ? serviceCategory : '',
+            ...(avatarURL ? { avatar_url: `${avatarURL}?v=${Date.now()}`, avatar_storage_path: avatarPath } : {}),
           },
         },
       });
 
       if (error) throw error;
 
+      if (avatarPath && (!data.user || data.user.identities?.length === 0)) {
+        const { error: cleanupError } = await supabase.storage.from('task-images').remove([avatarPath]);
+        if (cleanupError) console.error('Could not remove unused registration photo:', cleanupError);
+      }
+
       res.json({
         success: true,
         message: 'Registration created — check your email for a verification code.',
       });
     } catch (error) {
+        if (avatarPath) {
+          const { error: cleanupError } = await supabase.storage.from('task-images').remove([avatarPath]);
+          if (cleanupError) console.error('Could not remove profile photo after registration failure:', cleanupError);
+        }
         console.error('Registration error:', error);
         const msg = (error && (error.message || error.toString())) || 'Error registering user';
         const statusCode = error && error.status && Number.isInteger(error.status) ? error.status : 500;
@@ -182,7 +249,14 @@ app.post('/login', async (req, res) => {
         const user = updatedUser.user;
         const name = user.user_metadata?.name || 'User';
 
-        res.json({ success: true, message: 'Login successful', name, role: accountRole, user });
+        res.json({
+          success: true,
+          message: 'Login successful',
+          name,
+          role: accountRole,
+          user,
+          accessToken: data.session.access_token,
+        });
     } catch (error) {
         console.error('Login error:', error);
          const msg = (error && (error.message || error.toString())) || 'Invalid email or password';
@@ -520,6 +594,57 @@ app.get('/api/verify-transaction/:reference', async (req, res) => {
   } catch (error) {
     console.error('Error verifying transaction:', error.response?.data || error.message);
     res.status(500).json({ success: false, message: 'Error verifying payment' });
+  }
+});
+
+app.post('/api/profile/avatar', parseAvatarUpload, async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'Choose a profile photo to upload.' });
+  }
+
+  let avatarPath;
+  try {
+    const authenticatedUser = await getAuthenticatedUser(req, res);
+    if (!authenticatedUser) return;
+    const userId = authenticatedUser.id;
+
+    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+    if (userError) throw userError;
+
+    const extension = getAvatarFileExtension(req.file.mimetype);
+    avatarPath = `avatars/${userId}/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('task-images')
+      .upload(avatarPath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+    if (uploadError) throw uploadError;
+
+    const avatarURL = `${supabase.storage.from('task-images').getPublicUrl(avatarPath).data.publicUrl}?v=${Date.now()}`;
+    const { error: metadataError } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: {
+        ...userData.user.user_metadata,
+        avatar_url: avatarURL,
+        avatar_storage_path: avatarPath,
+      },
+    });
+    if (metadataError) throw metadataError;
+
+    const previousPath = userData.user.user_metadata?.avatar_storage_path;
+    if (previousPath && previousPath !== avatarPath) {
+      const { error: cleanupError } = await supabase.storage.from('task-images').remove([previousPath]);
+      if (cleanupError) console.error('Could not remove previous profile photo:', cleanupError);
+    }
+
+    res.json({ success: true, avatar_url: avatarURL });
+  } catch (error) {
+    if (avatarPath) {
+      const { error: cleanupError } = await supabase.storage.from('task-images').remove([avatarPath]);
+      if (cleanupError) console.error('Could not remove profile photo after upload failure:', cleanupError);
+    }
+    console.error('Profile photo upload error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Could not update profile photo.' });
   }
 });
 

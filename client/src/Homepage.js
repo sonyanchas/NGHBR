@@ -240,7 +240,7 @@ export default function Homepage({ onOpenAuth, onBecomeNeighbor }) {
       {/* Footer / contact */}
       <footer className="homepage-footer" style={styles.footer}>
         <p style={styles.footerText}>
-          If you have any questions, <a href="mailto:hello@taskboy.co.ke" style={styles.footerLink}>contact us</a>.
+          If you have any questions, <a href="https://api.whatsapp.com/message/HVN5SVSMNXHAM1?autoload=1&app_absent=0" style={styles.footerLink}>contact us</a>.
         </p>
       </footer>
 

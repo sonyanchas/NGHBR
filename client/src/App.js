@@ -63,7 +63,10 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
     const [lastname, setLastname] = useState('');
     const [phone, setPhone] = useState('');
     const [location, setLocation] = useState('');
+    const [avatarFile, setAvatarFile] = useState(null);
+    const [avatarPreview, setAvatarPreview] = useState('');
     const [name, setName] = useState('');
+    const [accessToken, setAccessToken] = useState('');
     const [profile, setProfile] = useState({});
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -84,6 +87,17 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
             setLocation(neighborDetails.city || '');
         }
     }, [accountRole, initialAuthMode, neighborDetails.city]);
+
+    useEffect(() => {
+        if (!avatarFile) {
+            setAvatarPreview('');
+            return undefined;
+        }
+
+        const previewUrl = URL.createObjectURL(avatarFile);
+        setAvatarPreview(previewUrl);
+        return () => URL.revokeObjectURL(previewUrl);
+    }, [avatarFile]);
     
     // Load Square SDK
     useEffect(() => {
@@ -133,6 +147,30 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
         const isCaps = e.getModifierState('CapsLock');
         setIsCapsLockOn(isCaps);
     };
+
+    const handleAvatarFileChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+            setAvatarFile(null);
+            return;
+        }
+
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setMessage('Choose a JPG, PNG, or WebP image for your profile photo.');
+            event.target.value = '';
+            setAvatarFile(null);
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setMessage('Profile photos must be 5 MB or smaller.');
+            event.target.value = '';
+            setAvatarFile(null);
+            return;
+        }
+
+        setMessage('');
+        setAvatarFile(file);
+    };
     
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -145,17 +183,27 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
 }
 
         try {
-            const response = await axios.post('/register', {
+            const registrationData = {
                 name: `${firstname} ${lastname}`.trim(),
                 firstname,
                 lastname,
                 phone,
-                location,
+                ...(accountRole === 'tasker' ? { location } : {}),
                 email,
                 password,
                 role: accountRole,
                 serviceCategory: accountRole === 'tasker' ? neighborDetails.category : '',
-            });
+            };
+            let payload = registrationData;
+            if (avatarFile) {
+                payload = new FormData();
+                Object.entries(registrationData).forEach(([key, value]) => {
+                    payload.append(key, value);
+                });
+                payload.append('avatar', avatarFile);
+            }
+
+            const response = await axios.post('/register', payload);
             console.log("Registration API response:", response);
             setMessage(response.data.message || 'Verification code sent to your email!');
             setIsEmailSent(true); // Show verification step
@@ -175,11 +223,10 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
                 location: neighborDetails.city,
                 serviceCategory: neighborDetails.category,
             });
-            console.log("Login API response:", response);
-            
             if (response.data.success) {
                 const userMetadata = response.data.user?.user_metadata || {};
                 setName(response.data.name || userMetadata.name || 'User');
+                setAccessToken(response.data.accessToken || '');
                 setProfile({
                     name: response.data.name || userMetadata.name || 'User',
                     firstname: userMetadata.firstname || '',
@@ -189,6 +236,7 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
                     email,
                     role: response.data.role || userMetadata.role || accountRole,
                     serviceCategory: userMetadata.serviceCategory || '',
+                    avatar_url: userMetadata.avatar_url || '',
                 });
                 setMessage('Login successful!');
                 setIsVerified(true); 
@@ -208,11 +256,13 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
     const handleLogout = () => {
         // Reset all states
         setName('');
+        setAccessToken('');
         setProfile({});
         setEmail('');
         setPassword('');
         setMessage('');
         setVerificationCode('');
+        setAvatarFile(null);
         setIsEmailSent(false);
         setIsVerified(false);
         setAuthMode('login'); // Switch to login mode for next time
@@ -290,14 +340,27 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
                     required
                 />
             </div>
-            <div>
-                <label>Location</label>
-                <select value={location} onChange={(e) => setLocation(e.target.value)} required>
-                    <option value="">Select your city</option>
-                    <option value="Nairobi">Nairobi</option>
-                    <option value="Mombasa">Mombasa</option>
-                </select>
+            <div className="registration-avatar-field">
+                <label htmlFor="registration-avatar">Profile photo(required)</label>
+                <input
+                    id="registration-avatar"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleAvatarFileChange}
+                />
+                <small>JPG, PNG, or WebP; maximum 5 MB.</small>
+                {avatarPreview && <img className="registration-avatar-preview" src={avatarPreview} alt="Profile photo preview" />}
             </div>
+            {accountRole === 'tasker' && (
+                <div>
+                    <label>Location</label>
+                    <select value={location} onChange={(e) => setLocation(e.target.value)} required>
+                        <option value="">Select your city</option>
+                        <option value="Nairobi">Nairobi</option>
+                        <option value="Mombasa">Mombasa</option>
+                    </select>
+                </div>
+            )}
             
             <div>
                 <label>Password</label>
@@ -374,6 +437,7 @@ function App({ initialAuthMode = 'login', accountRole = 'customer', neighborDeta
                     name={name}
                     email={email}
                     profile={profile}
+                    accessToken={accessToken}
                     role={profile.role || accountRole}
                     serviceCategory={profile.serviceCategory || neighborDetails.category}
                     onLogout={handleLogout}

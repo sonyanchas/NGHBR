@@ -157,3 +157,28 @@ button:hover {
   align-items: center;
   gap: 5px;
 }
+
+.registration-avatar-field {
+  text-align: left;
+}
+
+.registration-avatar-field input {
+  padding: 9px;
+}
+
+.registration-avatar-field small,
+.profile-photo-editor small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.registration-avatar-preview {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin-top: 12px;
+  border-radius: 50%;
+  object-fit: cover;
+}
